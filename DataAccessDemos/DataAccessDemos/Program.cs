@@ -25,22 +25,52 @@ namespace DataAccessDemos
             //EntityQuery();
 
             //EntityCrud();
+
+            //LinqFluentSyntax();
+
+            //LinqQuerySyntax();
         }
 
-        private static void SqlClientQuery()
+        private static void LinqFluentSyntax()
+        {
+            List<string> names = new List<string> { "Monkey", "Bear", "Dog", "Cat" };
+            var query = names.Where(n => n.Contains("B"));
+
+            foreach (string s in query)
+            {
+                Console.WriteLine(s);
+            }
+        }
+
+        private static void LinqQuerySyntax()
+        {
+            List<string> names = new List<string> { "Monkey", "Bear", "Dog", "Cat" };
+            var namesWithO = (from n in names where n.Contains("o") select n).Where(s => s.Length > 3);
+
+            names.Add("Frog");
+
+            foreach (string s in namesWithO)
+            {
+                Console.WriteLine(s);
+            }
+        }
+
+        private static void SqlClientQuery(string name = "Bob")
         {
             using (SqlConnection connection = new SqlConnection(ConnectionString))
-            using (SqlCommand command = new SqlCommand("SELECT TOP 10 * FROM Person.Person WHERE FirstName = @P1", connection))
+            using (SqlCommand command = new SqlCommand($"SELECT TOP 10 FirstName, LastName FROM Person.Person WHERE FirstName = @NAME", connection))
             {
+                //name = "' delete database; --";
                 connection.Open();
+                
 
-                command.Parameters.AddWithValue("P1", "Bob");
+                command.Parameters.AddWithValue("NAME", name);
 
                 var reader = command.ExecuteReader();
                 if (reader.HasRows)
                 {
-                    int firstNameOrdinal = reader.GetOrdinal("FirstName");
-                    int lastNameOrdinal = reader.GetOrdinal("LastName");
+                    int firstNameOrdinal = 0;  reader.GetOrdinal("FirstName");
+                    int lastNameOrdinal = 1;  reader.GetOrdinal("LastName");
 
                     while (reader.Read())
                     {
@@ -50,6 +80,8 @@ namespace DataAccessDemos
                         Console.WriteLine("{0}, {1}", lastName, firstName);
                     }
                 }
+
+                //connection.Close();
             }
         }
 
@@ -121,6 +153,11 @@ namespace DataAccessDemos
             }
         }
 
+        private static bool IsBob(Person p)
+        {
+            return p.FirstName == "Bob";
+        }
+
         private static void EntityCrud()
         {
             using (AdventureWorksEdm context = new AdventureWorksEdm())
@@ -128,7 +165,10 @@ namespace DataAccessDemos
                 var mattQuery = context.People.Where(p => p.FirstName == "Matt" && p.LastName == "Anderson");
 
                 // Show that Matt does not exist in the database.
-                Console.WriteLine("Matt's ID is {0}", mattQuery.FirstOrDefault()?.BusinessEntityID.ToString() ?? "<null>");
+                Console.WriteLine("Matt's ID is {0}", mattQuery
+                    .FirstOrDefault()?
+                    .BusinessEntityID
+                    .ToString() ?? "<null>");
 
                 var person = new Person
                 {
