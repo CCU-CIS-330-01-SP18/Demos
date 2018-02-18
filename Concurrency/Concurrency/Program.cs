@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Net;
@@ -19,7 +20,7 @@ namespace Concurrency
 
             //ConcurrentThreadCount(100);
 
-            //Console.WriteLine("Web page size: {0:n0}.", AccessTheWebAsync().Result);
+            //AsyncDownload();
 
             //RaceCondition();
 
@@ -135,19 +136,39 @@ namespace Concurrency
             Console.WriteLine("Actual Count: {0:n0}", actualCount);
         }
 
-        static async Task<int> AccessTheWebAsync()
+        private static void AsyncDownload()
+        {
+            string[] urls = new string[]
+            {
+                "http://msdn.microsoft.com",
+                "http://www.yahoo.com",
+                "http://www.google.com"
+            };
+
+            List<Task> tasks = new List<Task>();
+
+            foreach (var url in urls)
+            {
+                tasks.Add(GetAsync(url)
+                    .ContinueWith(t => Console.WriteLine($"{url}: page size: {t.Result:n0}.")));
+            }
+
+            Task.WaitAll(tasks.ToArray());
+        }
+
+        private static async Task<int> GetAsync(string url)
         {
             // You need to add a reference to System.Net.Http to declare client.
             HttpClient client = new HttpClient();
 
-            Console.WriteLine("Starting web page download...");
+            Console.WriteLine($"{url}: starting download...");
 
             // GetStringAsync returns a Task<string>. That means that when you await the
             // task you'll get a string (urlContents).
-            Task<string> getStringTask = client.GetStringAsync("http://msdn.microsoft.com");
+            Task<string> getStringTask = client.GetStringAsync(url);
 
             // You can do work here that doesn't rely on the string from GetStringAsync.
-            Console.WriteLine("Doing some other work here...");
+            Console.WriteLine($"{url}: doing some other work here...");
 
             // The await operator suspends AccessTheWebAsync.
             //  - AccessTheWebAsync can't continue until getStringTask is complete.
@@ -156,7 +177,7 @@ namespace Concurrency
             //  - The await operator then retrieves the string result from getStringTask.
             string urlContents = await getStringTask;
 
-            Console.WriteLine("Download complete...");
+            Console.WriteLine($"{url}: download complete.");
 
             // The return statement specifies an integer result.
             // Any methods that are awaiting AccessTheWebAsync retrieve the length value.
@@ -240,7 +261,17 @@ namespace Concurrency
         {
             Lazy<Oven> oven = new Lazy<Oven>(() => new Oven());
 
-            Console.WriteLine(oven.Value.IsPreHeated);
+            List<Task> tasks = new List<Task>();
+
+            for (int i = 0; i < 10; i++)
+            {
+                tasks.Add(Task.Run(() => Console.WriteLine($"IsPreHeated? {oven.Value.IsPreHeated}")));
+                Thread.Sleep(1000);
+            }
+
+            Task.WaitAll(tasks.ToArray());
+
+            Console.WriteLine($"Oven instance count: {Oven.InstanceCount}");
         }
 
         static void TimerDemo()
@@ -253,19 +284,19 @@ namespace Concurrency
 
         static void PLinqDemo()
         {
-            var source = Enumerable.Range(100, 200);
+            var source = Enumerable.Range(100, 2000);
 
             Stopwatch sw = new Stopwatch();
 
             sw.Start();
 
             // Result sequence might be out of order.
-            //var parallelQuery = from num in source //.AsParallel()
-            //                    where num % 10 == 0
-            //                    select num;
+            var parallelQuery = from num in source.AsParallel()
+                                where num % 10 == 0
+                                select num;
 
             // Fluent/Method syntax is also supported
-            var parallelQuery = source.AsParallel().Where(n => n % 10 == 0).Select(n => n);
+            //var parallelQuery = source.AsParallel().Where(n => n % 10 == 0).Select(n => n);
             //var parallelQuery = source.AsParallel().WithDegreeOfParallelism(2).Where(n => n % 10 == 0).Select(n => n);
 
             var result = parallelQuery.ToArray();
